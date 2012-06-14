@@ -31,6 +31,8 @@ typedef enum {
     SSL_CLIENT
 } PROXY_MODE;
 
+#define MAX_BACK_SERVERS 8
+
 /* configuration structure */
 struct __stud_config {
     ENC_TYPE ETYPE;
@@ -42,8 +44,9 @@ struct __stud_config {
     gid_t GID;
     char *FRONT_IP;
     char *FRONT_PORT;
-    char *BACK_IP;
-    char *BACK_PORT;
+    char *BACK_IP[MAX_BACK_SERVERS];
+    char *BACK_PORT[MAX_BACK_SERVERS];
+    long N_BACK_SERVERS;
     long NCORES;
     char *CERT_FILE;
     char *CIPHER_SUITE;

@@ -82,7 +82,7 @@
 
 /* Globals */
 static struct ev_loop *loop;
-static struct addrinfo *backaddr;
+static struct addrinfo *backaddr[MAX_BACK_SERVERS];
 static pid_t master_pid;
 static ev_io listener;
 static int listener_socket;
@@ -149,6 +149,7 @@ typedef struct proxystate {
     SSL *ssl;             /* OpenSSL SSL state */
 
     struct sockaddr_storage remote_ip;  /* Remote ip returned from `accept` */
+    int ip_hash;          /* FNV-1a-32 Hash of IP modulo number of backend servers */
 } proxystate;
 
 #define LOG(...)                                        \
@@ -415,7 +416,7 @@ static int create_shcupd_socket() {
 
         if (setsockopt(s, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreqn, sizeof(mreqn)) < 0) {
             if (errno != EINVAL) { /* EINVAL if it is not a multicast address,
-						not an error we consider unicast */
+                        not an error we consider unicast */
                 fail("{setsockopt: IP_ADD_MEMBERSIP}");
             }
         }
@@ -475,7 +476,7 @@ static int create_shcupd_socket() {
 
         if (setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
             if (errno != EINVAL) { /* EINVAL if it is not a multicast address,
-						not an error we consider unicast */
+                        not an error we consider unicast */
                 fail("{setsockopt: IPV6_ADD_MEMBERSIP}");
             }
         }
@@ -614,7 +615,7 @@ SSL_CTX * init_openssl() {
             ERR("Unable to alloc memory for shared cache.\n");
             exit(1);
         }
-	if (CONFIG->SHCUPD_PORT) {
+    if (CONFIG->SHCUPD_PORT) {
             if (compute_secret(rsa, shared_secret) < 0) {
                 ERR("Unable to compute shared secret.\n");
                 exit(1);
@@ -651,10 +652,10 @@ static void prepare_proxy_line(struct sockaddr* ai_addr) {
       struct sockaddr_in6* addr = (struct sockaddr_in6*)ai_addr;
       inet_ntop(AF_INET6,&(addr->sin6_addr),tcp6_address_string,INET6_ADDRSTRLEN);
       size_t res = snprintf(tcp_proxy_line,
-			    sizeof(tcp_proxy_line),
-			    "PROXY %%s %%s %s %%hu %hu\r\n",
-			    tcp6_address_string,
-			    ntohs(addr->sin6_port));
+                sizeof(tcp_proxy_line),
+                "PROXY %%s %%s %s %%hu %hu\r\n",
+                tcp6_address_string,
+                ntohs(addr->sin6_port));
       assert(res < sizeof(tcp_proxy_line));
     }
     else {
@@ -710,8 +711,9 @@ static int create_main_socket() {
 
 /* Initiate a clear-text nonblocking connect() to the backend IP on behalf
  * of a newly connected upstream (encrypted) client*/
-static int create_back_socket() {
-    int s = socket(backaddr->ai_family, SOCK_STREAM, IPPROTO_TCP);
+static int create_back_socket(int ip_hash) {
+    LOG("{iphash} Connect to backend %d\n", ip_hash);
+    int s = socket(backaddr[ip_hash]->ai_family, SOCK_STREAM, IPPROTO_TCP);
 
     if (s == -1)
       return -1;
@@ -780,7 +782,7 @@ static void handle_socket_errno(proxystate *ps, int backend) {
 /* Start connect to backend */
 static void start_connect(proxystate *ps) {
     int t = 1;
-    t = connect(ps->fd_down, backaddr->ai_addr, backaddr->ai_addrlen);
+    t = connect(ps->fd_down, backaddr[ps->ip_hash]->ai_addr, backaddr[ps->ip_hash]->ai_addrlen);
     if (t == 0 || errno == EINPROGRESS || errno == EINTR) {
         ev_io_start(loop, &ps->ev_w_connect);
         return ;
@@ -865,7 +867,7 @@ static void handle_connect(struct ev_loop *loop, ev_io *w, int revents) {
     (void) revents;
     int t;
     proxystate *ps = (proxystate *)w->data;
-    t = connect(ps->fd_down, backaddr->ai_addr, backaddr->ai_addrlen);
+    t = connect(ps->fd_down, backaddr[ps->ip_hash]->ai_addr, backaddr[ps->ip_hash]->ai_addrlen);
     if (!t || errno == EISCONN || !errno) {
         ev_io_stop(loop, &ps->ev_w_connect);
 
@@ -966,7 +968,7 @@ static void end_handshake(proxystate *ps) {
                 ringbuffer_write_append(&ps->ring_ssl2clear, 1U + 4U);
             }
         }
-	/* start connect now */
+    /* start connect now */
         start_connect(ps);
     }
     else {
@@ -1110,6 +1112,27 @@ static void ssl_write(struct ev_loop *loop, ev_io *w, int revents) {
     }
 }
 
+static int ip_hash(struct sockaddr * sa) {
+    unsigned char* bp;
+    unsigned char* be;
+    u_int32_t hval = 0x811c9dc5; // FNV-1a-32-INIT
+    
+    if (sa->sa_family == AF_INET) {
+        bp = (unsigned char*)&((struct sockaddr_in*)sa)->sin_addr;
+        be = bp + sizeof(struct in_addr);
+    } else {
+        bp = (unsigned char*)&((struct sockaddr_in6*)sa)->sin6_addr;
+        be = bp + sizeof(struct in6_addr);
+    }
+
+    while (bp < be) {
+        hval ^= (u_int32_t)*bp++;
+        hval += (hval<<1) + (hval<<4) + (hval<<7) + (hval<<8) + (hval<<24); // hval *= 0x01000193; // FNV-1a-32-PRIME
+    }
+
+    return hval % CONFIG->N_BACK_SERVERS; // should return 0 to CONFIG->N_BACK_SERVERS-1
+}
+
 /* libev read handler for the bound socket.  Socket is accepted,
  * the proxystate is allocated and initalized, and we're off the races
  * connecting to the backend */
@@ -1152,7 +1175,8 @@ static void handle_accept(struct ev_loop *loop, ev_io *w, int revents) {
     setnonblocking(client);
     settcpkeepalive(client);
 
-    int back = create_back_socket();
+    int hash = ip_hash((struct sockaddr *) &addr);
+    int back = create_back_socket(hash);
 
     if (back == -1) {
         close(client);
@@ -1180,6 +1204,7 @@ static void handle_accept(struct ev_loop *loop, ev_io *w, int revents) {
     ps->handshaked = 0;
     ps->renegotiation = 0;
     ps->remote_ip = addr;
+    ps->ip_hash = hash;
     ringbuffer_init(&ps->ring_clear2ssl);
     ringbuffer_init(&ps->ring_ssl2clear);
 
@@ -1209,7 +1234,6 @@ static void handle_accept(struct ev_loop *loop, ev_io *w, int revents) {
     start_handshake(ps, SSL_ERROR_WANT_READ); /* for client-first handshake */
 }
 
-
 static void check_ppid(struct ev_loop *loop, ev_timer *w, int revents) {
     (void) revents;
     pid_t ppid = getppid();
@@ -1219,7 +1243,6 @@ static void check_ppid(struct ev_loop *loop, ev_timer *w, int revents) {
         ev_io_stop(loop, &listener);
         close(listener_socket);
     }
-
 }
 
 static void handle_clear_accept(struct ev_loop *loop, ev_io *w, int revents) {
@@ -1261,7 +1284,8 @@ static void handle_clear_accept(struct ev_loop *loop, ev_io *w, int revents) {
     setnonblocking(client);
     settcpkeepalive(client);
 
-    int back = create_back_socket();
+    int hash = ip_hash((struct sockaddr *) &addr);
+    int back = create_back_socket(hash);
 
     if (back == -1) {
         close(client);
@@ -1291,6 +1315,7 @@ static void handle_clear_accept(struct ev_loop *loop, ev_io *w, int revents) {
     ps->handshaked = 0;
     ps->renegotiation = 0;
     ps->remote_ip = addr;
+    ps->ip_hash = hash;
     ringbuffer_init(&ps->ring_clear2ssl);
     ringbuffer_init(&ps->ring_ssl2clear);
 
@@ -1380,11 +1405,17 @@ void init_globals() {
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = 0;
-    const int gai_err = getaddrinfo(CONFIG->BACK_IP, CONFIG->BACK_PORT,
-                                    &hints, &backaddr);
-    if (gai_err != 0) {
-        ERR("{getaddrinfo}: [%s]", gai_strerror(gai_err));
-        exit(1);
+    int i;
+    
+    for(i = 0; i < CONFIG->N_BACK_SERVERS; i++) {
+    	int gai_err = getaddrinfo(CONFIG->BACK_IP[i], CONFIG->BACK_PORT[i],
+                                    &hints, &backaddr[i]);
+    	if (gai_err != 0) {
+        	ERR("{getaddrinfo}: [%s]", gai_strerror(gai_err));
+        	exit(1);
+    	} else {
+    		LOG("{conf} Backend #%d [%s]:%s\n", i, CONFIG->BACK_IP[i], CONFIG->BACK_PORT[i]);
+    	}
     }
 
 #ifdef USE_SHARED_CACHE
@@ -1601,12 +1632,12 @@ void openssl_check_version() {
     /* compiled with */
     if ((openssl_version ^ OPENSSL_VERSION_NUMBER) & ~0xff0L) {
         ERR(
-	    "WARNING: {core} OpenSSL version mismatch; stud was compiled with %lx, now using %lx.\n",
-	    (unsigned long int) OPENSSL_VERSION_NUMBER,
-	    (unsigned long int) openssl_version
-	);
-	/* now what? exit now? */
-	/* exit(1); */
+        "WARNING: {core} OpenSSL version mismatch; stud was compiled with %lx, now using %lx.\n",
+        (unsigned long int) OPENSSL_VERSION_NUMBER,
+        (unsigned long int) openssl_version
+    );
+    /* now what? exit now? */
+    /* exit(1); */
     }
 
     LOG("{core} Using OpenSSL version %lx.\n", (unsigned long int) openssl_version);
@@ -1635,7 +1666,7 @@ int main(int argc, char **argv) {
     if (CONFIG->SHCUPD_PORT) {
         /* create socket to send(children) and
                receive(parent) cache updates */
-    	shcupd_socket = create_shcupd_socket();
+        shcupd_socket = create_shcupd_socket();
     }
 #endif /* USE_SHARED_CACHE */
 
