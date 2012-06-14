@@ -100,8 +100,11 @@ Detail about the entire set of options can be found by invoking `stud -h`:
 
     SOCKET:
 
-      -b  --backend=HOST,PORT     Backend [connect] (default is "[127.0.0.1]:8000")
-      -f  --frontend=HOST,PORT    Frontend [bind] (default is "[*]:8443")
+      -b  --backend=HOST,PORT    Backend [connect] (default is "[127.0.0.1]:8000")
+                                 This argument can be given multiple times
+                                 If multiple backends are used request will be
+                                 distributed by source-ip-address using ip-hashing 
+      -f  --frontend=HOST,PORT   Frontend [bind] (default is "[*]:8443")
 
     PERFORMANCE:
 
