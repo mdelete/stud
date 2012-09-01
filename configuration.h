@@ -31,14 +31,12 @@ typedef enum {
     SSL_CLIENT
 } PROXY_MODE;
 
-<<<<<<< HEAD
 #define MAX_BACK_SERVERS 8
-=======
+
 struct cert_files {
     char *CERT_FILE;
     struct cert_files *NEXT;
 };
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
 
 /* configuration structure */
 struct __stud_config {

@@ -19,9 +19,11 @@ maxmium connection behavior, availability of service, etc.
 
 `stud` will optionally write the client IP address as the first few octets
 (depending on IPv4 or IPv6) to the backend--or provide that information
-using HAProxy's PROXY protocol.  In this way, backends who care about the
-client IP can still access it even though `stud` itself appears to be the
-connected client.
+using HAProxy's PROXY protocol.  When used with the PROXY protocol, `stud` can
+also transparently pass an existing PROXY header to the cleartext stream.  This
+is especially useful if a TCP proxy is used in front of `stud`.  Using either of
+these techniques, backends who care about the client IP can still access it even
+though `stud` itself appears to be the connected client.
 
 Thanks to a contribution from Emeric at Exceliance (the folks behind HAProxy),
 a special build of `stud` can be made that utilitizes shared memory to
@@ -81,7 +83,11 @@ Usage
 -----
 
 The only required argument is a path to a PEM file that contains the certificate
-(or a chain of certificates) and private key.
+(or a chain of certificates) and private key. If multiple certificates are
+given, `stud` will attempt to perform SNI (Server Name Indication) on new
+connections, by comparing the indicated name with the names on each of the
+certificates, in order. The first certificate that matches will be used. If none
+of the certificates matches, the last certificate will be used as the default.
 
 Detail about the entire set of options can be found by invoking `stud -h`:
 
@@ -94,17 +100,19 @@ Detail about the entire set of options can be found by invoking `stud -h`:
 
           --tls                   TLSv1 (default)
           --ssl                   SSLv3 (implies no TLSv1)
+          --verify-peer           Enable SSL client authentication
       -c  --ciphers=SUITE         Sets allowed ciphers (Default: "")
       -e  --ssl-engine=NAME       Sets OpenSSL engine (Default: "")
       -O  --prefer-server-ciphers Prefer server list order
 
     SOCKET:
 
-      -b  --backend=HOST,PORT    Backend [connect] (default is "[127.0.0.1]:8000")
-                                 This argument can be given multiple times
-                                 If multiple backends are used request will be
-                                 distributed by source-ip-address using ip-hashing 
-      -f  --frontend=HOST,PORT   Frontend [bind] (default is "[*]:8443")
+      -b  --backend=HOST,PORT     Backend [connect] (default is "[127.0.0.1]:8000")
+                                  This argument can be given multiple times
+                                  If multiple backends are used request will be
+                                  distributed by source-ip-address using ip-hashing 
+                                  
+      -f  --frontend=HOST,PORT    Frontend [bind] (default is "[*]:8443")
 
     PERFORMANCE:
 
@@ -130,6 +138,10 @@ Detail about the entire set of options can be found by invoking `stud -h`:
                                  to backend before the actual data
                                  (Default: off)
           --write-proxy          Write HaProxy's PROXY (IPv4 or IPv6) protocol line
+                                 before actual data. If used with verify-peer, the peer
+                                 certificate CN is also appended to this line
+                                 (Default: off)
+          --proxy-proxy          Proxy HaProxy's PROXY (IPv4 or IPv6) protocol line
                                  before actual data
                                  (Default: off)
 

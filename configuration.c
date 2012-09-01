@@ -161,13 +161,8 @@ void config_destroy (stud_config *cfg) {
   if (cfg->CHROOT != NULL) free(cfg->CHROOT);
   if (cfg->FRONT_IP != NULL) free(cfg->FRONT_IP);
   if (cfg->FRONT_PORT != NULL) free(cfg->FRONT_PORT);
-<<<<<<< HEAD
   if (cfg->BACK_IP[0] != NULL) free(cfg->BACK_IP[0]);     // this is not quite right I think but it
   if (cfg->BACK_PORT[0] != NULL) free(cfg->BACK_PORT[0]); // doesn't get called anyway
-  if (cfg->CERT_FILE != NULL) free(cfg->CERT_FILE);
-=======
-  if (cfg->BACK_IP != NULL) free(cfg->BACK_IP);
-  if (cfg->BACK_PORT != NULL) free(cfg->BACK_PORT);
   if (cfg->CERT_FILES != NULL) {
     struct cert_files *curr = cfg->CERT_FILES, *next;
     while (cfg->CERT_FILES != NULL) {
@@ -176,7 +171,6 @@ void config_destroy (stud_config *cfg) {
       curr = next;
     }
   }
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
   if (cfg->CIPHER_SUITE != NULL) free(cfg->CIPHER_SUITE);
   if (cfg->ENGINE != NULL) free(cfg->ENGINE);
 
@@ -885,6 +879,10 @@ void config_print_usage_fd (char *prog, stud_config *cfg, FILE *out) {
   fprintf(out, "\n");
   fprintf(out, "  --client                    Enable client proxy mode\n");
   fprintf(out, "  -b  --backend=HOST,PORT     Backend [connect] (default is \"%s\")\n", config_disp_hostport(cfg->BACK_IP[0], cfg->BACK_PORT[0]));
+  fprintf(out, "                              This argument can be given multiple times\n");
+  fprintf(out, "                              If multiple backends are used request will be\n");
+  fprintf(out, "                              distributed by source-ip-address using ip-hashing\n");
+  
   fprintf(out, "  -f  --frontend=HOST,PORT    Frontend [bind] (default is \"%s\")\n", config_disp_hostport(cfg->FRONT_IP, cfg->FRONT_PORT));
 
 #ifdef USE_SHARED_CACHE
@@ -1139,12 +1137,8 @@ void config_print_usage (char *prog, stud_config *cfg) {
 void config_parse_cli(int argc, char **argv, stud_config *cfg) {
   static int tls = 0, ssl = 0;
   static int client = 0;
-<<<<<<< HEAD
   static int verify_peer = 0;
-  int c;
-=======
   int c, i;
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
   int test_only = 0;
   char *prog;
 
@@ -1155,14 +1149,9 @@ void config_parse_cli(int argc, char **argv, stud_config *cfg) {
 #endif
 
     { "tls", 0, &tls, 1},
-<<<<<<< HEAD
     { "ssl", 0, &ssl, 1},    
     { "client", 0, &client, 1},
     { "verify-peer", 0, &verify_peer, 1},
-=======
-    { "ssl", 0, &ssl, 1},
-    { "client", 0, &client, 1},
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
     { CFG_CIPHERS, 1, NULL, 'c' },
     { CFG_PREFER_SERVER_CIPHERS, 0, NULL, 'O' },
     { CFG_BACKEND, 1, NULL, 'b' },

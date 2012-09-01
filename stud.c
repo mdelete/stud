@@ -438,11 +438,7 @@ static int create_shcupd_socket() {
 
         if (setsockopt(s, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreqn, sizeof(mreqn)) < 0) {
             if (errno != EINVAL) { /* EINVAL if it is not a multicast address,
-<<<<<<< HEAD
                         not an error we consider unicast */
-=======
-                                                not an error we consider unicast */
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
                 fail("{setsockopt: IP_ADD_MEMBERSIP}");
             }
         }
@@ -502,11 +498,7 @@ static int create_shcupd_socket() {
 
         if (setsockopt(s, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
             if (errno != EINVAL) { /* EINVAL if it is not a multicast address,
-<<<<<<< HEAD
                         not an error we consider unicast */
-=======
-                                                not an error we consider unicast */
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
                 fail("{setsockopt: IPV6_ADD_MEMBERSIP}");
             }
         }
@@ -563,7 +555,6 @@ RSA *load_rsa_privatekey(SSL_CTX *ctx, const char *file) {
     return rsa;
 }
 
-<<<<<<< HEAD
 int get_peer_cert_CN (SSL * ssl, char * buf, int buflen)
 {
     int len = 0;
@@ -585,14 +576,6 @@ int get_peer_cert_CN (SSL * ssl, char * buf, int buflen)
 	return len;
 }
 
-/* Init library and load specified certificate.
- * Establishes a SSL_ctx, to act as a template for
- * each connection */
-SSL_CTX * init_openssl() {
-    SSL_library_init();
-    SSL_load_error_strings();
-    SSL_CTX *ctx = NULL;
-=======
 #ifndef OPENSSL_NO_TLSEXT
 /*
  * Switch the context of the current SSL object to the most appropriate one
@@ -627,7 +610,6 @@ int sni_switch_ctx(SSL *ssl, int *al, void *data) {
 
 SSL_CTX *make_ctx(const char *pemfile) {
     SSL_CTX *ctx;
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
     RSA *rsa;
 
     long ssloptions = SSL_OP_NO_SSLv2 | SSL_OP_ALL |
@@ -661,11 +643,7 @@ SSL_CTX *make_ctx(const char *pemfile) {
         SSL_CTX_set_options(ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
     }
 
-<<<<<<< HEAD
-    if (CONFIG->PMODE == SSL_CLIENT)
-=======
     if (CONFIG->PMODE == SSL_CLIENT) {
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
         return ctx;
     }
 
@@ -691,7 +669,7 @@ SSL_CTX *make_ctx(const char *pemfile) {
                                 SSL_VERIFY_FAIL_IF_NO_PEER_CERT |
                                 SSL_VERIFY_CLIENT_ONCE, NULL); 
 
-	    if(SSL_CTX_load_verify_locations(ctx, CONFIG->CERT_FILE, NULL)) {
+	    if(SSL_CTX_load_verify_locations(ctx, CONFIG->CERT_FILES->CERT_FILE, NULL)) {
 	        //X509_STORE *store = SSL_CTX_get_cert_store(ctx);
 	        //SSL_CTX_add_client_CA(ctx, X509 *cacert);
 	        //SSL_CTX_set_client_CA_list(ctx, store); // STACK_OF(X509_NAME) *list
@@ -716,11 +694,7 @@ SSL_CTX *make_ctx(const char *pemfile) {
             ERR("Unable to alloc memory for shared cache.\n");
             exit(1);
         }
-<<<<<<< HEAD
     if (CONFIG->SHCUPD_PORT) {
-=======
-        if (CONFIG->SHCUPD_PORT) {
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
             if (compute_secret(rsa, shared_secret) < 0) {
                 ERR("Unable to compute shared secret.\n");
                 exit(1);
@@ -853,17 +827,10 @@ static void prepare_proxy_line(struct sockaddr* ai_addr) {
       struct sockaddr_in6* addr = (struct sockaddr_in6*)ai_addr;
       inet_ntop(AF_INET6,&(addr->sin6_addr),tcp6_address_string,INET6_ADDRSTRLEN);
       size_t res = snprintf(tcp_proxy_line,
-<<<<<<< HEAD
                 sizeof(tcp_proxy_line),
                 "PROXY %%s %%s %s %%hu %hu %%s\r\n",
                 tcp6_address_string,
                 ntohs(addr->sin6_port));
-=======
-                            sizeof(tcp_proxy_line),
-                            "PROXY %%s %%s %s %%hu %hu\r\n",
-                            tcp6_address_string,
-                            ntohs(addr->sin6_port));
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
       assert(res < sizeof(tcp_proxy_line));
     }
     else {
@@ -1169,13 +1136,8 @@ static void end_handshake(proxystate *ps) {
                                   tcp_proxy_line,
                                   "TCP6",
                                   tcp6_address_string,
-<<<<<<< HEAD
                                   ntohs(addr->sin6_port), cnbuf);
             }   
-=======
-                                  ntohs(addr->sin6_port));
-            }
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
             ringbuffer_write_append(&ps->ring_ssl2clear, written);
         }
         else if (CONFIG->WRITE_IP_OCTET) {
@@ -1194,12 +1156,8 @@ static void end_handshake(proxystate *ps) {
                 ringbuffer_write_append(&ps->ring_ssl2clear, 1U + 4U);
             }
         }
-<<<<<<< HEAD
         
     /* start connect now */
-=======
-        /* start connect now */
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
         start_connect(ps);
     }
     else {
@@ -1914,22 +1872,12 @@ void openssl_check_version() {
     /* check if we're running the same openssl that we were */
     /* compiled with */
     if ((openssl_version ^ OPENSSL_VERSION_NUMBER) & ~0xff0L) {
-        ERR(
-<<<<<<< HEAD
-        "WARNING: {core} OpenSSL version mismatch; stud was compiled with %lx, now using %lx.\n",
+        ERR("WARNING: {core} OpenSSL version mismatch; stud was compiled with %lx, now using %lx.\n",
         (unsigned long int) OPENSSL_VERSION_NUMBER,
         (unsigned long int) openssl_version
     );
     /* now what? exit now? */
     /* exit(1); */
-=======
-            "WARNING: {core} OpenSSL version mismatch; stud was compiled with %lx, now using %lx.\n",
-            (unsigned long int) OPENSSL_VERSION_NUMBER,
-            (unsigned long int) openssl_version
-        );
-        /* now what? exit now? */
-        /* exit(1); */
->>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
     }
 
     LOG("{core} Using OpenSSL version %lx.\n", (unsigned long int) openssl_version);
