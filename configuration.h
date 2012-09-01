@@ -31,7 +31,14 @@ typedef enum {
     SSL_CLIENT
 } PROXY_MODE;
 
+<<<<<<< HEAD
 #define MAX_BACK_SERVERS 8
+=======
+struct cert_files {
+    char *CERT_FILE;
+    struct cert_files *NEXT;
+};
+>>>>>>> 0b8803948120c8034f446fc1dfd28c246e6fadc3
 
 /* configuration structure */
 struct __stud_config {
@@ -39,6 +46,7 @@ struct __stud_config {
     PROXY_MODE PMODE;
     int WRITE_IP_OCTET;
     int WRITE_PROXY_LINE;
+    int PROXY_PROXY_LINE;
     char *CHROOT;
     uid_t UID;
     gid_t GID;
@@ -48,9 +56,10 @@ struct __stud_config {
     char *BACK_PORT[MAX_BACK_SERVERS];
     long N_BACK_SERVERS;
     long NCORES;
-    char *CERT_FILE;
+    struct cert_files *CERT_FILES;
     char *CIPHER_SUITE;
     char *ENGINE;
+    int VERIFY_PEER;
     int BACKLOG;
 #ifdef USE_SHARED_CACHE
     int SHARED_CACHE;
