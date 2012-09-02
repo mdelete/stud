@@ -670,9 +670,7 @@ SSL_CTX *make_ctx(const char *pemfile) {
                                 SSL_VERIFY_CLIENT_ONCE, NULL); 
 
 	    if(SSL_CTX_load_verify_locations(ctx, CONFIG->CERT_FILES->CERT_FILE, NULL)) {
-	        //X509_STORE *store = SSL_CTX_get_cert_store(ctx);
-	        //SSL_CTX_add_client_CA(ctx, X509 *cacert);
-	        //SSL_CTX_set_client_CA_list(ctx, store); // STACK_OF(X509_NAME) *list
+	        SSL_CTX_set_client_CA_list(ctx, SSL_load_client_CA_file(pemfile));
 	        SSL_CTX_set_default_verify_paths(ctx);
 	        SSL_CTX_set_verify_depth(ctx, 2);
 	    }
